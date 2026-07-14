@@ -1,0 +1,20 @@
+- q: "Как в проекте устроены push-уведомления?"
+  expect_sources: [docs/notifications.md]
+- q: "Что такое UnifiedPush и зачем он здесь?"
+  expect_sources: [docs/unifiedpush.md]
+- q: "Опиши флоу логина пользователя"
+  expect_sources: [docs/signin.md]
+- q: "Как запустить UI-тесты?"
+  expect_sources: [docs/ui-tests.md]
+- q: "Как правильно оформить pull request в этот проект?"
+  expect_sources: [docs/pull_request.md]
+- q: "Что нужно сделать, чтобы начать разработку с нуля?"
+  expect_sources: [docs/_developer_onboarding.md]
+- q: "Как тестируются миграции базы данных?"
+  expect_sources: [docs/database_migration_test.md]
+- q: "Зачем в проекте Rust-крипто и как оно интегрировано?"
+  expect_sources: [docs/rust_crypto_integration.md]
+- q: "Как устроена интеграция с Jitsi для звонков?"
+  expect_sources: [docs/jitsi.md]
+- q: "На какой я сейчас ветке и что у меня в diff?"
+  expect_sources: []          # ответ должен прийти из git-тулов, а НЕ из RAG
