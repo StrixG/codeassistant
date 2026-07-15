@@ -42,19 +42,36 @@ class DeepSeekClient:
         )
         self._model = cfg.deepseek_model
 
-    def chat(self, messages: list[dict], tools: list[dict] | None = None):
-        """One chat completion with 1 retry on timeout / 5xx, with backoff."""
+    def chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        *,
+        response_format: dict | None = None,
+        **kwargs,
+    ):
+        """One chat completion with 1 retry on timeout / 5xx, with backoff.
+
+        ``response_format={"type": "json_object"}`` switches on JSON mode; the
+        prompt must mention JSON for the API to accept it. Omitted from the
+        request entirely when None, so existing callers send identical bodies.
+        """
+        params = {
+            "model": self._model,
+            "messages": messages,
+            "tools": tools or None,
+            "tool_choice": "auto" if tools else None,
+            "temperature": 0.0,
+            "extra_body": _THINKING_OFF,
+            **kwargs,
+        }
+        if response_format is not None:
+            params["response_format"] = response_format
+
         last_err: Exception | None = None
         for attempt in range(2):  # 1 initial try + 1 retry
             try:
-                return self._client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    tools=tools or None,
-                    tool_choice="auto" if tools else None,
-                    temperature=0.0,
-                    extra_body=_THINKING_OFF,
-                )
+                return self._client.chat.completions.create(**params)
             except (APITimeoutError, APIConnectionError, InternalServerError) as e:
                 last_err = e
             except APIStatusError as e:

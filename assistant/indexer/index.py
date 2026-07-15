@@ -22,6 +22,7 @@ from rich.console import Console
 from assistant.config import Config
 from assistant.core.embeddings import get_embedder
 from assistant.indexer.chunker import chunk_markdown, default_token_counter
+from assistant.indexer.code_chunker import chunk_kotlin
 
 console = Console()
 
@@ -31,6 +32,20 @@ _ROOT_FILES = ["README.md", "CONTRIBUTING.md"]
 # Defensive skips even if a glob would match them.
 _SKIP_DIR_PARTS = {"images"}
 _SKIP_SUFFIXES = {".pdf", ".mwb", ".png", ".jpg", ".jpeg", ".gif", ".svg"}
+
+# Kotlin sources. `src/*/` already excludes sibling build/ output.
+_CODE_GLOBS = [
+    "vector/src/*/**/*.kt",
+    "vector-app/src/*/**/*.kt",
+    "matrix-sdk-android/src/*/**/*.kt",
+    "library/*/src/*/**/*.kt",
+]
+_CODE_SKIP_PARTS = {"build", "generated"}
+_TEST_SOURCE_SETS = ("test", "androidTest", "sharedTest")
+
+# Embedding one file at a time wastes most of the batch; 3.5k files would mean
+# 3.5k tiny encode calls.
+_EMBED_BATCH = 256
 
 
 def _state_path(cfg: Config) -> Path:
@@ -50,6 +65,32 @@ def discover_files(repo: Path) -> list[str]:
             if p.suffix.lower() in _SKIP_SUFFIXES:
                 continue
             if _SKIP_DIR_PARTS & set(p.relative_to(repo).parts):
+                continue
+            found.add(str(p.relative_to(repo)))
+    return sorted(found)
+
+
+def _is_test_source(parts: tuple[str, ...]) -> bool:
+    """True for <module>/src/<testSourceSet>/... paths.
+
+    Matches test, testFdroid, androidTest, androidTestGplay, sharedTest —
+    while leaving main, debug, release, fdroid, gplay and nightly alone.
+    """
+    for i, p in enumerate(parts):
+        if p == "src" and i + 1 < len(parts):
+            return parts[i + 1].startswith(_TEST_SOURCE_SETS)
+    return False
+
+
+def discover_code_files(repo: Path) -> list[str]:
+    """Sorted, unique repo-relative paths of Kotlin sources to index."""
+    found: set[str] = set()
+    for pattern in _CODE_GLOBS:
+        for p in repo.glob(pattern):
+            if not p.is_file():
+                continue
+            parts = p.relative_to(repo).parts
+            if _CODE_SKIP_PARTS & set(parts) or _is_test_source(parts):
                 continue
             found.add(str(p.relative_to(repo)))
     return sorted(found)
@@ -88,8 +129,13 @@ class IndexStats:
     chunks_added: int = 0
 
 
-def run_index(force: bool = False) -> int:
-    cfg = Config.load(require_api_key=False)
+def run_index(
+    force: bool = False,
+    *,
+    cfg: Config | None = None,
+    include_code: bool = True,
+) -> int:
+    cfg = cfg or Config.load(require_api_key=False)
     repo = cfg.target_repo_path
     if not repo.is_dir():
         console.print(f"[red]TARGET_REPO_PATH is not a directory: {repo}[/red]")
@@ -109,8 +155,14 @@ def run_index(force: bool = False) -> int:
         cfg.chroma_collection, metadata={"hnsw:space": "cosine"}
     )
 
-    files = discover_files(repo)
-    console.print(f"Discovered [bold]{len(files)}[/bold] documents under {repo}")
+    doc_files = discover_files(repo)
+    code_files = discover_code_files(repo) if include_code else []
+    source_of = {r: "docs" for r in doc_files} | {r: "code" for r in code_files}
+    files = sorted(source_of)
+    console.print(
+        f"Discovered [bold]{len(doc_files)}[/bold] documents and "
+        f"[bold]{len(code_files)}[/bold] Kotlin sources under {repo}"
+    )
 
     state: dict[str, str] = {} if force else _load_state(cfg)
     blob_shas = _git_blob_shas(repo)
@@ -132,33 +184,58 @@ def run_index(force: bool = False) -> int:
     # Files previously indexed but now gone from the corpus.
     deleted = [p for p in state if p not in current]
 
-    # Remove stale chunks for changed + deleted files before re-adding.
-    for rel in [*to_index, *deleted]:
+    # Remove stale chunks before re-adding — but only for files we actually
+    # indexed before. On a cold run every file is in to_index and none is in
+    # state, and firing a delete per file would mean thousands of no-ops.
+    stale = [r for r in to_index if r in state]
+    for rel in [*stale, *deleted]:
         collection.delete(where={"file_path": rel})
     stats.deleted_files = len(deleted)
 
+    buf_ids: list[str] = []
+    buf_docs: list[str] = []
+    buf_metas: list[dict] = []
+
+    def flush() -> None:
+        if not buf_ids:
+            return
+        embeddings = embedder.embed_passages(buf_docs)
+        collection.add(ids=buf_ids, documents=buf_docs, metadatas=buf_metas, embeddings=embeddings)
+        buf_ids.clear()
+        buf_docs.clear()
+        buf_metas.clear()
+
     for rel in to_index:
         text = (repo / rel).read_text(encoding="utf-8", errors="replace")
-        chunks = chunk_markdown(text, count_tokens=counter)
+        source = source_of[rel]
+        if source == "code":
+            chunks = chunk_kotlin(text, file_path=rel, count_tokens=counter)
+        else:
+            chunks = chunk_markdown(text, count_tokens=counter)
         if not chunks:
             continue
         git_sha = blob_shas.get(rel, "untracked")
-        ids = [f"{rel}::{i}" for i in range(len(chunks))]
-        docs = [c.text for c in chunks]
-        metas = [
+        buf_ids.extend(f"{rel}::{i}" for i in range(len(chunks)))
+        buf_docs.extend(c.text for c in chunks)
+        buf_metas.extend(
             {
                 "file_path": rel,
                 "heading_path": c.heading_path,
                 "git_sha": git_sha,
                 "chunk_index": i,
+                "source": source,
             }
             for i, c in enumerate(chunks)
-        ]
-        embeddings = embedder.embed_passages(docs)
-        collection.add(ids=ids, documents=docs, metadatas=metas, embeddings=embeddings)
+        )
         stats.indexed_files += 1
         stats.chunks_added += len(chunks)
-        console.print(f"  indexed {rel} [dim]({len(chunks)} chunks, sha {git_sha})[/dim]")
+        if len(buf_ids) >= _EMBED_BATCH:
+            flush()
+            console.print(
+                f"  [dim]{stats.indexed_files}/{len(to_index)} files, "
+                f"{stats.chunks_added} chunks[/dim]"
+            )
+    flush()
 
     _save_state(cfg, current)
 

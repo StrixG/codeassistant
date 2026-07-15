@@ -113,7 +113,10 @@ def make_rag_tool(searcher: RagSearcher, source_sink: list[dict]) -> Tool:
     """rag_search: query Chroma, record sources for citation, return text."""
 
     def handler(query: str, top_k: int = 5) -> str:
-        hits = searcher.search(query, top_k=top_k)
+        # Scoped to docs on purpose: the collection also holds source code
+        # now, and this tool backs a prompt that says "answer from the
+        # documentation only". Without the filter it would return Kotlin.
+        hits = searcher.search(query, top_k=top_k, where={"source": "docs"})
         if not hits:
             return "No matching documentation found."
         lines: list[str] = []

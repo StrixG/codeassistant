@@ -20,6 +20,7 @@ class SearchHit:
     git_sha: str
     text: str
     distance: float
+    source: str = "docs"  # "docs" | "code"; defaults for pre-code indexes
 
 
 class RagSearcher:
@@ -34,13 +35,21 @@ class RagSearcher:
     def count(self) -> int:
         return self._collection.count()
 
-    def search(self, query: str, top_k: int = 5) -> list[SearchHit]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        where: dict | None = None,
+    ) -> list[SearchHit]:
+        """Nearest chunks, optionally scoped by metadata (e.g. source=docs)."""
         if self._collection.count() == 0:
             return []
         qv = self._embedder.embed_query(query)
         res = self._collection.query(
             query_embeddings=[qv],
             n_results=top_k,
+            where=where or None,
             include=["documents", "metadatas", "distances"],
         )
         hits: list[SearchHit] = []
@@ -55,6 +64,7 @@ class RagSearcher:
                     git_sha=meta.get("git_sha", ""),
                     text=doc,
                     distance=float(dist),
+                    source=meta.get("source", "docs"),
                 )
             )
         return hits
