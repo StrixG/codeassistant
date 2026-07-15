@@ -47,6 +47,26 @@ _TEST_SOURCE_SETS = ("test", "androidTest", "sharedTest")
 # 3.5k tiny encode calls.
 _EMBED_BATCH = 256
 
+# e5 packs everything into a narrow cone — cosine between two unrelated Kotlin
+# chunks still runs ~0.85-0.95. HNSW's default M=16 cannot build a navigable
+# graph over data that dense: on a 27k-chunk index most nodes ended up
+# unreachable, and a query could not retrieve a chunk even by its own vector.
+# Rare categories suffered worst: filtering to source=docs (1% of the index)
+# returned nothing at all, so reviews silently lost their documentation.
+#
+# M is what fixes it — raising construction_ef alone does not, and raising
+# search_ef afterwards cannot repair an already-built graph. Benchmarked over
+# 27k clustered vectors (unreachable of 15 probes / insert time):
+#   M=16 default          3 / 14.6s
+#   M=32                  0 / 23.5s
+#   M=32 + ef_c=200       0 / 29.6s   (no better, just slower)
+#   M=48                  0 / 26.1s   (no better, bigger index)
+_HNSW_CONFIG = {
+    "hnsw:space": "cosine",
+    "hnsw:M": 32,
+    "hnsw:search_ef": 200,
+}
+
 
 def _state_path(cfg: Config) -> Path:
     return cfg.chroma_path / "index_state.json"
@@ -151,9 +171,7 @@ def run_index(
             client.delete_collection(cfg.chroma_collection)
         except Exception:
             pass
-    collection = client.get_or_create_collection(
-        cfg.chroma_collection, metadata={"hnsw:space": "cosine"}
-    )
+    collection = client.get_or_create_collection(cfg.chroma_collection, metadata=_HNSW_CONFIG)
 
     doc_files = discover_files(repo)
     code_files = discover_code_files(repo) if include_code else []
