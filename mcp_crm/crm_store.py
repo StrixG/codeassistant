@@ -47,11 +47,54 @@ def save_tickets(data_dir: Path, tickets: list[dict]) -> None:
     )
 
 
+def save_users(data_dir: Path, users: list[dict]) -> None:
+    _users_path(data_dir).write_text(
+        json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
 def get_user(data_dir: Path, user_id: str) -> dict:
     for u in load_users(data_dir):
         if u["id"] == user_id:
             return u
     raise CrmError(f"unknown user_id: {user_id!r}")
+
+
+def find_user_by_telegram_id(data_dir: Path, telegram_id: str) -> dict:
+    """Return the CRM profile bound to a Telegram account id.
+
+    Users with no binding yet carry ``telegram_id: null``; a ``None``
+    lookup must not match them, hence the explicit guard.
+    """
+    if telegram_id is None:
+        raise CrmError("telegram_id is required")
+    for u in load_users(data_dir):
+        if u.get("telegram_id") == telegram_id:
+            return u
+    raise CrmError(f"no user bound to telegram_id: {telegram_id!r}")
+
+
+def bind_telegram_user(data_dir: Path, user_id: str, telegram_id: str) -> dict:
+    """Bind a Telegram account id to a CRM user, returning the updated profile.
+
+    Rebinding an id that already points at another user just overwrites it —
+    this is a mock CRM, not an auth system.
+    """
+    users = load_users(data_dir)
+    bound: dict | None = None
+    for u in users:
+        # Clear any existing binding of this telegram_id
+        if u.get("telegram_id") == telegram_id:
+            u["telegram_id"] = None
+        # Find and bind the target user
+        if u["id"] == user_id:
+            u["telegram_id"] = telegram_id
+            bound = u
+    if bound is None:
+        raise CrmError(f"unknown user_id: {user_id!r}")
+
+    save_users(data_dir, users)
+    return bound
 
 
 def list_tickets(data_dir: Path, user_id: str, status: str | None = None) -> list[dict]:

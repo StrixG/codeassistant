@@ -26,6 +26,7 @@ def data_dir(tmp_path: Path) -> Path:
             "app_version": "1.6.20",
             "plan": "free",
             "signup_date": "2023-03-11",
+            "telegram_id": "111",
         },
         {
             "id": "user-2",
@@ -35,6 +36,7 @@ def data_dir(tmp_path: Path) -> Path:
             "app_version": "1.4.2",
             "plan": "pro",
             "signup_date": "2022-11-02",
+            "telegram_id": None,
         },
     ]
     tickets = [
@@ -129,3 +131,42 @@ def test_update_ticket_does_not_touch_other_tickets(data_dir):
     other = crm_store.get_ticket(data_dir, "ticket-1002")
     assert other["status"] == "resolved"  # unchanged, was already resolved
     assert other["history"] == []
+
+
+def test_find_user_by_telegram_id_found(data_dir):
+    user = crm_store.find_user_by_telegram_id(data_dir, "111")
+    assert user["id"] == "user-1"
+
+
+def test_find_user_by_telegram_id_unknown_raises(data_dir):
+    with pytest.raises(CrmError):
+        crm_store.find_user_by_telegram_id(data_dir, "999")
+
+
+def test_find_user_by_telegram_id_ignores_unbound_users(data_dir):
+    # user-2 has telegram_id None — a None lookup must not match it.
+    with pytest.raises(CrmError):
+        crm_store.find_user_by_telegram_id(data_dir, None)
+
+
+def test_bind_telegram_user_persists_to_disk(data_dir):
+    updated = crm_store.bind_telegram_user(data_dir, "user-2", "222")
+    assert updated["telegram_id"] == "222"
+
+    reloaded = crm_store.find_user_by_telegram_id(data_dir, "222")
+    assert reloaded["id"] == "user-2"
+
+
+def test_bind_telegram_user_overwrites_existing_binding(data_dir):
+    crm_store.bind_telegram_user(data_dir, "user-2", "111")
+    assert crm_store.find_user_by_telegram_id(data_dir, "111")["id"] == "user-2"
+
+
+def test_bind_telegram_user_unknown_user_raises(data_dir):
+    with pytest.raises(CrmError):
+        crm_store.bind_telegram_user(data_dir, "user-999", "333")
+
+
+def test_bind_telegram_user_does_not_touch_other_users(data_dir):
+    crm_store.bind_telegram_user(data_dir, "user-2", "222")
+    assert crm_store.get_user(data_dir, "user-1")["telegram_id"] == "111"
