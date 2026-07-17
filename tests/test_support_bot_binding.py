@@ -90,6 +90,23 @@ async def test_try_bind_escapes_user_text_in_the_error_reply():
 
 
 @pytest.mark.asyncio
+async def test_try_bind_escapes_html_special_chars_in_the_bound_name():
+    # The success reply is also sent with parse_mode=HTML, so CRM data
+    # interpolated into it must come back escaped just like the error path.
+    bound_json = json.dumps(
+        {"id": "user-1", "name": "<b>Анна</b> & Co", "telegram_id": "111"}, ensure_ascii=False
+    )
+    mcp = FakeMcp({"get_user": bound_json, "bind_telegram_user": bound_json})
+    pending = PendingBindings()
+    pending.mark_waiting(111)
+
+    reply, user = await try_bind(mcp, pending, 111, "user-1")
+
+    assert "&lt;b&gt;Анна&lt;/b&gt; &amp; Co" in reply
+    assert "<b>Анна</b>" not in reply
+
+
+@pytest.mark.asyncio
 async def test_try_bind_strips_whitespace_from_user_id():
     mcp = FakeMcp({"get_user": USER_JSON, "bind_telegram_user": USER_JSON})
     pending = PendingBindings()

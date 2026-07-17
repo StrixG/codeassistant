@@ -68,9 +68,11 @@ async def try_bind(
 
     bound = await crm.bind_telegram_user(mcp, user_id, telegram_id)
     pending.clear(telegram_id)
+    # bound comes back from the CRM, so it goes out escaped too — this
+    # reply is sent with parse_mode=HTML same as the error branch above.
     return (
-        f"Готово, {bound.get('name')}! Этот чат связан с профилем "
-        f"<code>{bound['id']}</code>.\n\nЗадайте ваш вопрос — я отвечу с учётом "
+        f"Готово, {html.escape(str(bound.get('name')))}! Этот чат связан с профилем "
+        f"<code>{html.escape(str(bound['id']))}</code>.\n\nЗадайте ваш вопрос — я отвечу с учётом "
         "вашего профиля и открытых тикетов.",
         bound,
     )

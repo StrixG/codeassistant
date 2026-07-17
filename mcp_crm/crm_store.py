@@ -4,8 +4,8 @@ Mirrors ``assistant/mcp_server/repo_tools.py``: no MCP here, so it is
 unit-testable on its own against a temp data dir. The data dir is passed
 in by the caller from config, never taken from an LLM argument.
 
-Files: ``users.json`` (read-only from here) and ``tickets.json`` (read and
-written by ``update_ticket``).
+Files: ``users.json`` (read and written by ``bind_telegram_user``) and
+``tickets.json`` (read and written by ``update_ticket``).
 """
 
 from __future__ import annotations
