@@ -26,4 +26,4 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
 codeassistant = "assistant.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["assistant*"]
+include = ["assistant*", "mcp_crm*", "support_assistant*"]

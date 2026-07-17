@@ -1,0 +1,74 @@
+[
+  {
+    "id": "user-1",
+    "name": "Анна Смирнова",
+    "email": "anna.smirnova@example.com",
+    "platform": "Android",
+    "app_version": "1.6.20",
+    "plan": "free",
+    "signup_date": "2023-03-11"
+  },
+  {
+    "id": "user-2",
+    "name": "Дмитрий Волков",
+    "email": "d.volkov@example.com",
+    "platform": "Android",
+    "app_version": "1.4.2",
+    "plan": "pro",
+    "signup_date": "2022-11-02"
+  },
+  {
+    "id": "user-3",
+    "name": "Екатерина Орлова",
+    "email": "e.orlova@example.com",
+    "platform": "Android",
+    "app_version": "1.6.18",
+    "plan": "team",
+    "signup_date": "2021-06-27"
+  },
+  {
+    "id": "user-4",
+    "name": "Максим Соколов",
+    "email": "m.sokolov@example.com",
+    "platform": "Android",
+    "app_version": "1.6.20",
+    "plan": "free",
+    "signup_date": "2024-01-15"
+  },
+  {
+    "id": "user-5",
+    "name": "Ольга Кузнецова",
+    "email": "o.kuznetsova@example.com",
+    "platform": "Android",
+    "app_version": "1.5.9",
+    "plan": "pro",
+    "signup_date": "2022-08-04"
+  },
+  {
+    "id": "user-6",
+    "name": "Игорь Новиков",
+    "email": "i.novikov@example.com",
+    "platform": "Android",
+    "app_version": "1.6.20",
+    "plan": "team",
+    "signup_date": "2023-09-30"
+  },
+  {
+    "id": "user-7",
+    "name": "Татьяна Морозова",
+    "email": "t.morozova@example.com",
+    "platform": "Android",
+    "app_version": "1.6.19",
+    "plan": "free",
+    "signup_date": "2024-05-02"
+  },
+  {
+    "id": "user-8",
+    "name": "Сергей Лебедев",
+    "email": "s.lebedev@example.com",
+    "platform": "Android",
+    "app_version": "1.6.20",
+    "plan": "pro",
+    "signup_date": "2020-12-19"
+  }
+]
