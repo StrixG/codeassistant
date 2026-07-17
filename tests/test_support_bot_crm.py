@@ -8,6 +8,7 @@ RuntimeError when the transport itself is down).
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 
 import pytest
@@ -52,6 +53,14 @@ async def test_find_user_by_telegram_id_returns_none_when_unbound():
 @pytest.mark.asyncio
 async def test_find_user_by_telegram_id_raises_when_mcp_is_down():
     mcp = FakeMcp({"find_user_by_telegram_id": RuntimeError("stdio closed")})
+
+    with pytest.raises(CrmUnavailable):
+        await crm.find_user_by_telegram_id(mcp, 111)
+
+
+@pytest.mark.asyncio
+async def test_find_user_by_telegram_id_raises_when_mcp_call_times_out():
+    mcp = FakeMcp({"find_user_by_telegram_id": concurrent.futures.TimeoutError()})
 
     with pytest.raises(CrmUnavailable):
         await crm.find_user_by_telegram_id(mcp, 111)

@@ -15,6 +15,7 @@ CrmUnavailable, which handlers turn into an apology to the user.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 from typing import Any
 
@@ -28,7 +29,7 @@ class CrmUnavailable(RuntimeError):
 async def _call(mcp: McpClient, tool: str, arguments: dict) -> str:
     try:
         return await asyncio.to_thread(mcp.call_tool, tool, arguments)
-    except RuntimeError as e:  # transport failure from McpClient.call_tool
+    except (RuntimeError, concurrent.futures.TimeoutError) as e:  # transport failure or timeout from McpClient.call_tool
         raise CrmUnavailable(f"MCP call {tool} failed: {e}") from e
 
 
