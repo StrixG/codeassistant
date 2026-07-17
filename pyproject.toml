@@ -20,10 +20,11 @@ dependencies = [
 # keeping them out shaves a chunk off CI install time.
 [project.optional-dependencies]
 mcp = ["mcp>=1.2", "prompt_toolkit>=3.0"]
+bot = ["aiogram>=3.13"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
 
 [project.scripts]
 codeassistant = "assistant.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["assistant*", "mcp_crm*", "support_assistant*"]
+include = ["assistant*", "mcp_crm*", "support_assistant*", "support_bot*"]
