@@ -1,0 +1,30 @@
+# Run the Telegram support bot:
+#
+#   cp .env.example .env      # then fill TELEGRAM_BOT_TOKEN + DEEPSEEK_API_KEY
+#   docker compose up --build
+#
+# First start downloads the embedding model and builds the support_kb index —
+# give it a minute. Both persist in named volumes, so restarts are fast.
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: support-bot:latest
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      # CRM state (users.json, tickets.json) — the bot writes here, so it must
+      # survive container replacement.
+      - support-data:/app/data/support
+      # Persisted Chroma index, so the embedder only runs once.
+      - chroma-index:/app/.chroma
+      # Hugging Face model cache (embedding weights), keyed off HF_HOME.
+      - hf-models:/models
+
+volumes:
+  support-data:
+  chroma-index:
+  hf-models:

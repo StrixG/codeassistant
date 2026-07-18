@@ -132,6 +132,36 @@ python -m support_bot.bot
 поднимает его сам как stdio-подпроцесс через `McpClient`, так же как
 основной `assistant chat` поднимает `assistant.mcp_server.server`.
 
+## Запуск бота в Docker
+
+Всё, что нужно на хосте, — заполненный `.env` и запущенный Docker:
+
+```bash
+cp .env.example .env
+# заполнить TELEGRAM_BOT_TOKEN (от @BotFather) и DEEPSEEK_API_KEY
+docker compose up --build
+```
+
+Первый старт скачивает модель эмбеддингов и строит индекс `support_kb` —
+это займёт минуту. Обе вещи кэшируются в named-томах, поэтому рестарты
+быстрые.
+
+Что делает образ (см. `Dockerfile`, `docker/entrypoint.sh`,
+`docker-compose.yml`):
+
+- ставит `.[bot,mcp]` — bot тянет `aiogram`, mcp нужен подпроцессу
+  `mcp_crm.server`;
+- `entrypoint.sh` на старте: (1) засевает том данных из запечённой копии,
+  не перезатирая живые записи CRM; (2) строит индекс, если он пуст (иначе
+  бот падает на пустом `support_kb`); (3) запускает `python -m support_bot.bot`;
+- три named-тома: `support-data` (`data/support` — CRM пишет туда
+  `users.json`/`tickets.json`), `chroma-index` (`.chroma`, чтобы эмбеддер
+  грузился один раз), `hf-models` (кэш весов модели).
+
+`TARGET_REPO_PATH` из `.env` боту не нужен (он не ходит в целевой репозиторий),
+но `Config.load` требует переменную заданной — оставьте плейсхолдер из
+`.env.example`.
+
 ## Переменные окружения
 
 Все — в `.env`, читаются только через `assistant.config.Config` (ничто
