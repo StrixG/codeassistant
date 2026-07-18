@@ -14,9 +14,11 @@ these exact names.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import AsyncIterator
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -52,6 +54,40 @@ CLOSE_NOTE = "Закрыто ассистентом поддержки посл�
 # they are unit-tested without any aiogram types.
 TELEGRAM_MESSAGE_LIMIT = 4096
 EMPTY_ANSWER_FALLBACK = "Готово."
+
+# Telegram's "typing…" indicator auto-clears after ~5s, so a single
+# send_chat_action goes dark long before a slow answer (MCP + RAG +
+# DeepSeek) is ready — and the chat looks frozen. Re-send it a little
+# under that window, in the background, for as long as we're working.
+TYPING_REFRESH_SECONDS = 4.0
+
+
+@contextlib.asynccontextmanager
+async def keep_typing(bot: Bot, chat_id: int) -> AsyncIterator[None]:
+    """Hold the "typing…" indicator up for the whole ``with`` body.
+
+    A background task re-sends the chat action every
+    ``TYPING_REFRESH_SECONDS`` until the block exits. The indicator is
+    cosmetic, so any send failure is logged and swallowed — it must never
+    break the actual answer. CancelledError is not an Exception subclass,
+    so the ``except`` below lets clean cancellation on exit through.
+    """
+
+    async def loop() -> None:
+        while True:
+            try:
+                await bot.send_chat_action(chat_id, "typing")
+            except Exception as e:  # cosmetic only — never break the answer
+                log.warning("failed to send typing action to chat=%s: %s", chat_id, e)
+            await asyncio.sleep(TYPING_REFRESH_SECONDS)
+
+    task = asyncio.create_task(loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 def close_keyboard(ticket_id: str) -> InlineKeyboardMarkup:
@@ -192,10 +228,10 @@ async def handle_text(
         await message.answer(CRM_DOWN_MESSAGE)
         return
 
-    await message.bot.send_chat_action(message.chat.id, "typing")
-    result = await answer_question(
-        message.text, telegram_id=telegram_id, user=user, mcp=mcp, rag=rag, llm=llm
-    )
+    async with keep_typing(message.bot, message.chat.id):
+        result = await answer_question(
+            message.text, telegram_id=telegram_id, user=user, mcp=mcp, rag=rag, llm=llm
+        )
     for chunk in split_answer_into_chunks(render_answer(result.answer)):
         await message.answer(chunk)
 

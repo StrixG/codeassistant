@@ -7,6 +7,7 @@ handler wrappers around it are trivial and are exercised by hand.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import types
 
@@ -14,6 +15,7 @@ import pytest
 from aiogram.exceptions import TelegramBadRequest
 
 from assistant.core.rag import SearchHit
+from support_bot import handlers
 from support_bot.handlers import (
     CRM_DOWN_MESSAGE,
     UNEXPECTED_ERROR_MESSAGE,
@@ -21,6 +23,7 @@ from support_bot.handlers import (
     close_keyboard,
     handle_ticket_close,
     handle_unexpected_error,
+    keep_typing,
     render_answer,
     split_answer_into_chunks,
 )
@@ -178,6 +181,57 @@ def test_split_answer_into_chunks_hard_cuts_a_single_overlong_line():
     assert len(chunks) == 3
     assert all(len(c) <= 4096 for c in chunks)
     assert "".join(chunks) == text
+
+
+# --- keep_typing -------------------------------------------------------------
+# The indicator must be re-sent repeatedly (not once) while work runs, and
+# stop cleanly the moment the block exits. A send failure must not escape.
+
+
+class FakeBot:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.actions: list[tuple[int, str]] = []
+
+    async def send_chat_action(self, chat_id, action, **kwargs):
+        self.actions.append((chat_id, action))
+        if self.fail:
+            raise TelegramBadRequest(method=None, message="chat not found")
+
+
+@pytest.mark.asyncio
+async def test_keep_typing_refreshes_repeatedly_then_stops(monkeypatch):
+    # Tiny refresh so several ticks fire in a blink; deterministic, no wall clock.
+    monkeypatch.setattr(handlers, "TYPING_REFRESH_SECONDS", 0)
+    bot = FakeBot()
+
+    async with keep_typing(bot, 555):
+        # Yield control a few times so the background loop gets to run.
+        for _ in range(5):
+            await asyncio.sleep(0)
+
+    ticks_at_exit = len(bot.actions)
+    assert ticks_at_exit > 1  # re-sent, not a single shot
+    assert all(a == (555, "typing") for a in bot.actions)
+
+    # Loop is cancelled on exit: no further actions after the block.
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert len(bot.actions) == ticks_at_exit
+
+
+@pytest.mark.asyncio
+async def test_keep_typing_swallows_send_failures(monkeypatch):
+    monkeypatch.setattr(handlers, "TYPING_REFRESH_SECONDS", 0)
+    bot = FakeBot(fail=True)
+
+    # A failing send_chat_action must not break the with-body.
+    async with keep_typing(bot, 555):
+        await asyncio.sleep(0)
+        done = True
+
+    assert done
+    assert bot.actions  # it did try
 
 
 # --- handle_ticket_close resilience -----------------------------------------
