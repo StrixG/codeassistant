@@ -6,8 +6,7 @@
     "platform": "Android",
     "app_version": "1.6.20",
     "plan": "free",
-    "signup_date": "2023-03-11",
-    "telegram_id": null
+    "signup_date": "2023-03-11"
   },
   {
     "id": "user-2",
@@ -16,8 +15,7 @@
     "platform": "Android",
     "app_version": "1.4.2",
     "plan": "pro",
-    "signup_date": "2022-11-02",
-    "telegram_id": null
+    "signup_date": "2022-11-02"
   },
   {
     "id": "user-3",
@@ -26,8 +24,7 @@
     "platform": "Android",
     "app_version": "1.6.18",
     "plan": "team",
-    "signup_date": "2021-06-27",
-    "telegram_id": null
+    "signup_date": "2021-06-27"
   },
   {
     "id": "user-4",
@@ -36,8 +33,7 @@
     "platform": "Android",
     "app_version": "1.6.20",
     "plan": "free",
-    "signup_date": "2024-01-15",
-    "telegram_id": null
+    "signup_date": "2024-01-15"
   },
   {
     "id": "user-5",
@@ -46,8 +42,7 @@
     "platform": "Android",
     "app_version": "1.5.9",
     "plan": "pro",
-    "signup_date": "2022-08-04",
-    "telegram_id": null
+    "signup_date": "2022-08-04"
   },
   {
     "id": "user-6",
@@ -56,8 +51,7 @@
     "platform": "Android",
     "app_version": "1.6.20",
     "plan": "team",
-    "signup_date": "2023-09-30",
-    "telegram_id": null
+    "signup_date": "2023-09-30"
   },
   {
     "id": "user-7",
@@ -66,8 +60,7 @@
     "platform": "Android",
     "app_version": "1.6.19",
     "plan": "free",
-    "signup_date": "2024-05-02",
-    "telegram_id": null
+    "signup_date": "2024-05-02"
   },
   {
     "id": "user-8",
@@ -76,7 +69,6 @@
     "platform": "Android",
     "app_version": "1.6.20",
     "plan": "pro",
-    "signup_date": "2020-12-19",
-    "telegram_id": null
+    "signup_date": "2020-12-19"
   }
 ]
