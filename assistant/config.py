@@ -49,6 +49,11 @@ class Config:
     support_chroma_collection: str = "support_kb"
     support_data_dir: Path = Path("data/support")
 
+    # Telegram support bot (Day 34). Defaulted to "" rather than required:
+    # Config.load() is shared with the main assistant and mcp_crm.server,
+    # neither of which needs a bot token. support_bot/bot.py checks it.
+    telegram_bot_token: str = ""
+
     @classmethod
     def load(cls, *, require_api_key: bool = True) -> "Config":
         repo = Path(_get("TARGET_REPO_PATH", required=True)).expanduser().resolve()
@@ -65,4 +70,5 @@ class Config:
             metrics_path=Path(_get("METRICS_PATH", "./metrics.jsonl")).expanduser().resolve(),
             support_chroma_collection=_get("SUPPORT_CHROMA_COLLECTION", "support_kb"),
             support_data_dir=Path(_get("SUPPORT_DATA_DIR", "./data/support")).expanduser().resolve(),
+            telegram_bot_token=_get("TELEGRAM_BOT_TOKEN", ""),
         )

@@ -49,6 +49,38 @@ def get_user(user_id: str) -> str:
 
 
 @mcp.tool()
+def find_user_by_telegram_id(telegram_id: str) -> str:
+    """Return the CRM profile bound to a Telegram account id as JSON.
+
+    Used by the Telegram bot to work out who is writing to it before
+    answering. Returns an error string if no user is bound to that id —
+    the caller is expected to ask the person for their CRM user id and
+    then call bind_telegram_user.
+    """
+    try:
+        user = crm_store.find_user_by_telegram_id(_DATA_DIR, telegram_id)
+        return json.dumps(user, ensure_ascii=False)
+    except CrmError as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def bind_telegram_user(user_id: str, telegram_id: str) -> str:
+    """Bind a Telegram account id to a CRM user. Returns the updated
+    profile as JSON.
+
+    Call this once the person has told you their CRM user id and it has
+    been verified with get_user. Rebinding overwrites any previous
+    binding.
+    """
+    try:
+        user = crm_store.bind_telegram_user(_DATA_DIR, user_id, telegram_id)
+        return json.dumps(user, ensure_ascii=False)
+    except CrmError as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
 def list_tickets(user_id: str, status: str = "") -> str:
     """List support tickets for a user as JSON, optionally filtered by
     status (one of: open, pending, resolved). Pass an empty status to get

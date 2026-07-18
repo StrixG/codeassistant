@@ -85,13 +85,33 @@ support_assistant/chat.py               CLI-чат ассистента подд
 tests/test_crm_store.py          тесты CRM-тулов на тестовых JSON
 tests/test_support_context.py    тесты сборки контекста и парсинга SUGGEST_CLOSE
 tests/test_support_chat_graceful.py   graceful-ответ при недоступном DeepSeek
+
+support_bot/crm.py               async-доступ к CRM через MCP (to_thread + разбор JSON)
+support_bot/binding.py           привязка telegram_id к CRM-профилю
+support_bot/handlers.py          хендлеры aiogram: /start, вопрос, закрытие тикета
+support_bot/bot.py               точка входа Telegram-бота (long polling)
+
+tests/test_support_bot_crm.py       тесты async-слоя CRM на fake-MCP
+tests/test_support_bot_binding.py   тесты привязки telegram_id → user_id
+tests/test_support_bot_handlers.py  тесты сборки контекста вопроса и клавиатуры
+tests/test_config_telegram.py       тесты чтения TELEGRAM_BOT_TOKEN
 ```
+
+Telegram-бот (`support_bot`) — альтернативный фронтенд к тому же ядру:
+`answer_message` из `support_assistant.chat` переиспользуется как есть,
+поэтому пайплайн (MCP → RAG → один вызов DeepSeek) идентичен CLI. Отличий
+два: пользователь определяется по `telegram_id` через MCP-тулы
+`find_user_by_telegram_id`/`bind_telegram_user` вместо флага `--user`, а
+закрытие тикета подтверждается inline-кнопкой вместо ввода `y/N`. Один
+`McpClient` и один `RagSearcher` живут на весь процесс бота и делятся
+между всеми чатами; блокирующие вызовы уходят в `asyncio.to_thread`,
+чтобы медленный ответ одному пользователю не задерживал остальных.
 
 ## Запуск с нуля
 
 ```bash
 # 1. Зависимости (mcp-экстра нужна и основному ассистенту, и этому сервису)
-pip install -e ".[mcp,dev]"
+pip install -e ".[mcp,bot,dev]"
 
 # 2. .env — если ещё не настроен для основного ассистента
 cp .env.example .env
@@ -102,6 +122,10 @@ python -m support_assistant.index_support_kb
 
 # 4. Запуск чата поддержки для конкретного пользователя
 python -m support_assistant.chat --user user-1
+
+# 5. Telegram-бот (вместо CLI): токен от @BotFather в .env как TELEGRAM_BOT_TOKEN
+pip install -e ".[mcp,bot,dev]"
+python -m support_bot.bot
 ```
 
 `mcp_crm.server` отдельно руками запускать не нужно — `support_assistant.chat`
@@ -122,6 +146,7 @@ python -m support_assistant.chat --user user-1
 | `SUPPORT_DATA_DIR` | нет | `./data/support` | папка с `users.json`/`tickets.json`/`faq.md`/`product_guide.md` |
 | `CHROMA_PATH` | нет | `./.chroma` | общий Chroma store и для `element_docs`, и для `support_kb` |
 | `DEEPSEEK_MODEL`, `DEEPSEEK_BASE_URL`, `EMBEDDING_MODEL`, `REQUEST_TIMEOUT` | нет | см. `.env.example` | те же, что у основного ассистента |
+| `TELEGRAM_BOT_TOKEN` | для бота | — | токен от @BotFather; нужен только `support_bot`, остальные команды работают без него |
 
 ## Тесты
 
