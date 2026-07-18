@@ -38,8 +38,12 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Non-root user owning the mutable paths (data volume, index, model cache).
+# Pre-create every volume mount point owned by bot. Docker seeds an empty
+# named volume from the image path *including ownership*, so these dirs must
+# exist and be bot-owned here or the fresh volume lands root-owned and the
+# non-root process can't write to it.
 RUN useradd --create-home --uid 10001 bot \
-    && mkdir -p /app/data /app/.chroma /models \
+    && mkdir -p /app/data/support /app/.chroma /models \
     && chown -R bot:bot /app /models
 USER bot
 
